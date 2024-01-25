@@ -1,24 +1,32 @@
 const Book = require("../models/Book");
 const fs = require("fs");
+const sharp = require("sharp");
 
-exports.createBook = (req, res) => {
-  const bookObject = JSON.parse(req.body.book);
-  delete bookObject._id;
-  delete bookObject._userId;
-  const book = new Book({
-    ...bookObject,
-    userId: req.auth.userId,
-    imageUrl: `${req.protocol}://${req.get("host")}/images/${req.file.filename}`,
-  });
+exports.createBook = async (req, res) => {
+  try {
+    const bookObject = JSON.parse(req.body.book);
+    delete bookObject._id;
+    delete bookObject._userId;
 
-  book
-    .save()
-    .then(() => {
-      res.status(201).json({ message: "images enregistré !" });
-    })
-    .catch((error) => {
-      res.status(400).json({ error });
+    const imagePath = `images/${req.file.filename}`;
+    const compressedImagePath = `images/compressed_${req.file.filename}`;
+
+    // Utilise Sharp pour comprimer l'image
+    await sharp(imagePath)
+      .jpeg({ quality: 80 }) // ajustez la qualité selon vos besoins
+      .toFile(compressedImagePath);
+
+    const book = new Book({
+      ...bookObject,
+      userId: req.auth.userId,
+      imageUrl: `${req.protocol}://${req.get("host")}/${compressedImagePath}`,
     });
+
+    await book.save();
+    res.status(201).json({ message: "Image enregistrée!" });
+  } catch (error) {
+    res.status(400).json({ error });
+  }
 };
 
 exports.getOneBook = (req, res) => {
@@ -35,36 +43,43 @@ exports.getOneBook = (req, res) => {
     });
 };
 
-exports.modifyBook = (req, res) => {
-  const bookObject = req.file
-    ? {
-        ...JSON.parse(req.body.book),
-        imageUrl: `${req.protocol}://${req.get("host")}/images/${
-          req.file.filename
-        }`,
-      }
-    : { ...req.body };
-  delete bookObject._userId;
-  Book.findOne({ _id: req.params.id })
-    .then((book) => {
-      if (book.userId !== req.auth.userId) {
-        res.status(401).json({ message: "Unauthorized request" });
-      } else {
-        Book.updateOne(
-          { _id: req.params.id },
-          { ...bookObject, _id: req.params.id }
-        )
-          .then(() => {
-            res.status(201).json({ message: "Book updated successfully!" });
-          })
-          .catch((error) => {
-            res.status(400).json({ error });
-          });
-      }
-    })
-    .catch((error) => {
-      res.status(400).json({ error });
-    });
+exports.modifyBook = async (req, res) => {
+  try {
+    const bookObject = req.file
+      ? {
+          ...JSON.parse(req.body.book),
+          imageUrl: `${req.protocol}://${req.get("host")}/images/compressed_${
+            req.file.filename
+          }`,
+        }
+      : { ...req.body };
+    delete bookObject._userId;
+
+    const imagePath = `images/${req.file.filename}`;
+    const compressedImagePath = `images/compressed_${req.file.filename}`;
+    await sharp(imagePath)
+      .jpeg({ quality: 80 })
+      .toFile(compressedImagePath);
+
+    const book = await Book.findOne({ _id: req.params.id });
+
+    if (!book) {
+      return res.status(404).json({ message: "Livre non trouvé" });
+    }
+
+    if (book.userId !== req.auth.userId) {
+      return res.status(401).json({ message: "Requête non autorisée" });
+    }
+
+    await Book.updateOne(
+      { _id: req.params.id },
+      { ...bookObject, _id: req.params.id }
+    );
+
+    res.status(201).json({ message: "Livre mis à jour avec succès!" });
+  } catch (error) {
+    res.status(400).json({ error });
+  }
 };
 
 exports.rateBook = (req, res) => {
