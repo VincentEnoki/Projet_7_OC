@@ -6,6 +6,7 @@ const bookRoutes = require("./routes/book");
 const userRoutes = require("./routes/user");
 const path = require("path");
 
+console.log("test");
 mongoose
   .connect(
     "mongodb+srv://admin:mongodbdemo@cluster0.ixeln8l.mongodb.net/?retryWrites=true&w=majority",
