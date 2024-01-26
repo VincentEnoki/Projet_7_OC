@@ -5,11 +5,12 @@ const mongoose = require("mongoose");
 const bookRoutes = require("./routes/book");
 const userRoutes = require("./routes/user");
 const path = require("path");
+require ("dotenv").config();
 
-console.log("test");
+
 mongoose
   .connect(
-    "mongodb+srv://admin:mongodbdemo@cluster0.ixeln8l.mongodb.net/?retryWrites=true&w=majority",
+    `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.ixeln8l.mongodb.net/?retryWrites=true&w=majority`,
     { useNewUrlParser: true, useUnifiedTopology: true }
   )
   .then(() => console.log("Connexion à MongoDB réussie !"))
